@@ -1,16 +1,35 @@
-# Password Strength Analyzer - Week 02
+# Password Strength Analyzer - Week 03
+
 # ITIA 1510 - Cybersecurity Automation
 
+# Set the number of passwords to audit in this batch.
+
+batch_size = 3
+count = 0
+
+# These counters are initialized before the loop so they can track
+
+# results across all passwords instead of resetting for each password.
+
+total_pass = 0
+total_fail = 0
+critical_count = 0
+
+# Process each password until the batch size has been reached.
+
+while count < batch_size:
+
+```
 # Collect information about the account and password.
 account = input("Enter the account or system: ")
 
-# Username is collected now because it will be used for checks in Week 02.
+# Username is collected for the username-match security check.
 username = input("Enter the username: ")
 
 # Collect the password that will be analyzed.
 password = input("Enter the password: ")
 
-# Collect the rotation interval as a string, then convert it to an integer.
+# Collect the rotation interval and convert it to an integer.
 rotation_interval = int(input("Enter the password rotation interval in months: "))
 
 # Calculate the password length.
@@ -20,7 +39,7 @@ password_length = len(password)
 length_score = password_length * 10
 
 # Calculate the number of password rotations over three years.
-rotations_3yr = (36 // rotation_interval)
+rotations_3yr = 36 // rotation_interval
 
 # Classify the password based on its length.
 if password_length < 8:
@@ -32,8 +51,13 @@ elif password_length <= 14:
 else:
     length_verdict = "STRONG -- meets NIST SP 800-63B recommendations"
 
-# Check whether the password contains at least one digit.
-has_digit = '0' in password or '1' in password or '2' in password or '3' in password or '4' in password or '5' in password or '6' in password or '7' in password or '8' in password or '9' in password
+# Start with False, then use a for loop to check each character for a digit.
+# This is better than the Week 02 version because it checks all digits
+# without needing nine separate or operators.
+has_digit = False
+for char in password:
+    if char in '0123456789':
+        has_digit = True
 
 # Check that the password does not match the username.
 not_username = password != username
@@ -51,9 +75,9 @@ else:
 length_ok = password_length >= 15
 overall_pass = length_ok and has_digit and not_username
 
-# Display the password audit report.
+# Display the password audit report for the current password.
 print("========================================")
-print("   PASSWORD AUDIT REPORT")
+print(f"   PASSWORD AUDIT REPORT  ({count + 1} of {batch_size})")
 print("========================================")
 print(f"Account:           {account}")
 print(f"Username:          {username}")
@@ -67,16 +91,36 @@ print(f"Digit found:       {'YES' if has_digit else 'NO'}")
 print(f"Username match:    {'NO' if not_username else 'YES'}")
 print(f"Rotation verdict:  {rotation_verdict}")
 
-# Display a critical warning if the password matches the username.
+# Track passwords that match their username as CRITICAL findings.
 if not_username is False:
     print("CRITICAL -- password must not match username.")
+    critical_count += 1
 
 print("----------------------------------------")
 
-# Display PASS only when all three Boolean checks are true.
+# Update the batch PASS or FAIL counter.
 if overall_pass:
     print("OVERALL: PASS -- password meets all checked criteria")
+    total_pass += 1
 else:
     print("OVERALL: FAIL -- see findings above")
+    total_fail += 1
 
+print("========================================")
+
+# Increase the count so the while loop eventually reaches the batch size.
+count += 1
+```
+
+# Display the summary after all passwords have been processed.
+
+print("========================================")
+print("   BATCH AUDIT SUMMARY")
+print("========================================")
+print(f"Passwords audited: {batch_size}")
+print(f"Passed:            {total_pass}")
+print(f"Failed:            {total_fail}")
+print(f"Critical flags:    {critical_count}")
+print("----------------------------------------")
+print("NOTE: Input is still hardcoded -- file reading coming in Week 08.")
 print("========================================")
