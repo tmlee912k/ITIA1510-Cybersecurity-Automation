@@ -52,8 +52,7 @@ else:
     length_verdict = "STRONG -- meets NIST SP 800-63B recommendations"
 
 # Start with False, then use a for loop to check each character for a digit.
-# This is better than the Week 02 version because it checks all digits
-# without needing nine separate or operators.
+
 has_digit = False
 for char in password:
     if char in '0123456789':
