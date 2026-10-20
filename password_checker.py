@@ -1,6 +1,7 @@
-# Password Strength Analyzer - Week 07
+# Password Strength Analyzer - Week 09
 # ITIA 1510 - Cybersecurity Automation
 
+import json
 
 # Policy stays outside the main block so the tests can import it.
 policy = {
@@ -126,6 +127,22 @@ def write_report(report_lines, filepath):
     with open(filepath, "w") as f:
         for line in report_lines:
             f.write(line + "\n")
+
+
+def save_summary(summary, filepath):
+    """Save the audit summary dictionary to a JSON file."""
+    # Open the file in write mode to save the latest audit results.
+    with open(filepath, "w") as f:
+        # Indentation makes the JSON easier for people to read.
+        json.dump(summary, f, indent=2)
+
+
+def load_summary(filepath):
+    """Load a JSON audit summary and return its dictionary."""
+    # Open the saved summary in read mode.
+    with open(filepath, "r") as f:
+        # json.load converts the JSON data into Python dictionaries and lists.
+        return json.load(f)
 
 
 def audit_password(
@@ -277,8 +294,11 @@ if __name__ == "__main__":
     )
     report_lines.append("========================================")
 
-    # Print and save the exact same report lines.
+    # Print and save the exact same report lines as Week 07.
     for line in report_lines:
         print(line)
 
     write_report(report_lines, "report.txt")
+
+    # Save the batch summary separately for other programs to read.
+    save_summary(summary, "audit_summary.json")
