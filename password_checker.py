@@ -1,7 +1,8 @@
-# Password Strength Analyzer - Week 09
+# Password Strength Analyzer - Week 10
 # ITIA 1510 - Cybersecurity Automation
 
 import json
+import os
 
 # Policy stays outside the main block so the tests can import it.
 policy = {
@@ -10,7 +11,8 @@ policy = {
     "max_rotation_months": 12,
     "good_rotation_months": 6,
     "require_digit": True,
-    "check_breach_list": True
+    "check_breach_list": True,
+    "history_runs": 3
 }
 
 
@@ -143,6 +145,44 @@ def load_summary(filepath):
     with open(filepath, "r") as f:
         # json.load converts the JSON data into Python dictionaries and lists.
         return json.load(f)
+
+
+
+def load_history(filepath):
+    """Load audit history from JSON, or return an empty list if it is missing."""
+    # The file will not exist before the first run, so start with an empty history.
+    if not os.path.exists(filepath):
+        return []
+
+    with open(filepath, "r") as f:
+        return json.load(f)
+
+
+def add_to_history(history, summary, keep):
+    """Add this run to history and return only the newest keep runs."""
+    if history:
+        # The list may already be trimmed, so its length is not the total run count.
+        next_run = history[-1]["run"] + 1
+    else:
+        next_run = 1
+
+    history.append({
+        "run": next_run,
+        "passed": summary["passed"],
+        "failed": summary["failed"],
+        "critical_accounts": summary["critical_accounts"]
+    })
+
+    # Trim old entries so the history stays within the configured limit.
+    if keep <= 0:
+        return []
+    return history[-keep:]
+
+
+def save_history(history, filepath):
+    """Save audit history to a JSON file."""
+    with open(filepath, "w") as f:
+        json.dump(history, f, indent=2)
 
 
 def audit_password(
@@ -302,3 +342,8 @@ if __name__ == "__main__":
 
     # Save the batch summary separately for other programs to read.
     save_summary(summary, "audit_summary.json")
+
+    # Update the rolling history after saving the regular Week 09 summary.
+    history = load_history("audit_history.json")
+    history = add_to_history(history, summary, policy["history_runs"])
+    save_history(history, "audit_history.json")
