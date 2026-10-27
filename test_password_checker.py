@@ -1,5 +1,9 @@
-# Week 06 Unit Tests
+# Week 10 Unit Tests
 # ITIA 1510 - Cybersecurity Automation
+
+import json
+import os
+import tempfile
 
 from password_checker import (
     check_length,
@@ -8,7 +12,10 @@ from password_checker import (
     check_rotation,
     check_breach,
     known_breached,
-    policy
+    policy,
+    load_history,
+    add_to_history,
+    save_history
 )
 
 
@@ -115,6 +122,48 @@ print(
 )
 
 
+# Shared sample summary for the history tests.
+sample = {
+    "passed": 2,
+    "failed": 3,
+    "critical_accounts": ["Gmail", "SSH Server"]
+}
+
+
+# Test load_history when the file does not exist.
+with tempfile.TemporaryDirectory() as folder:
+    missing_filepath = os.path.join(folder, "missing_history.json")
+    assert load_history(missing_filepath) == []
+print("PASS: load_history returns an empty list for a missing file")
+
+
+# Test that the first history entry is numbered 1.
+history = add_to_history([], sample, 3)
+assert len(history) == 1
+assert history[0]["run"] == 1
+assert history[0]["passed"] == 2
+assert history[0]["failed"] == 3
+assert history[0]["critical_accounts"] == ["Gmail", "SSH Server"]
+print("PASS: add_to_history records the first run")
+
+
+# Test that only the newest two runs are kept.
+history = []
+for i in range(3):
+    history = add_to_history(history, sample, 2)
+assert [entry["run"] for entry in history] == [2, 3]
+print("PASS: add_to_history kept only the newest 2 runs")
+
+
+# Test that saved history can be loaded back unchanged.
+with tempfile.TemporaryDirectory() as folder:
+    history_filepath = os.path.join(folder, "history.json")
+    history = add_to_history([], sample, 3)
+    save_history(history, history_filepath)
+    loaded_history = load_history(history_filepath)
+    assert loaded_history == history
+print("PASS: save_history and load_history returned the original history")
+
+
 print("----------------------------------------")
-print("All 12 tests passed.")
-```
+print("All 16 tests passed.")
