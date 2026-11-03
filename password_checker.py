@@ -1,8 +1,9 @@
-# Password Strength Analyzer - Week 10
+# Password Strength Analyzer - Week 11
 # ITIA 1510 - Cybersecurity Automation
 
 import json
 import os
+
 
 # Policy stays outside the main block so the tests can import it.
 policy = {
@@ -82,6 +83,32 @@ def check_breach(password, known_breached):
     return not_breached
 
 
+def breach_verdicts(username, credentials, known_breached):
+    """Return breach verdicts for every account belonging to a username."""
+    accounts = []
+
+    for cred in credentials:
+        if cred["username"] == username:
+
+            # check_breach returns True for safe passwords, so reverse the result.
+            on_breach_list = not check_breach(
+                cred["password"],
+                known_breached
+            )
+
+            # Leave out passwords to minimize sensitive data exposure.
+            accounts.append({
+                "account": cred["account"],
+                "on_breach_list": on_breach_list
+            })
+
+    # A username without accounts gets an empty list.
+    return {
+        "username": username,
+        "accounts": accounts
+    }
+
+
 def load_breached(filepath):
     """Read breached passwords from a file and return a list of strings."""
     known_breached = []
@@ -147,7 +174,6 @@ def load_summary(filepath):
         return json.load(f)
 
 
-
 def load_history(filepath):
     """Load audit history from JSON, or return an empty list if it is missing."""
     # The file will not exist before the first run, so start with an empty history.
@@ -176,6 +202,7 @@ def add_to_history(history, summary, keep):
     # Trim old entries so the history stays within the configured limit.
     if keep <= 0:
         return []
+
     return history[-keep:]
 
 
@@ -347,3 +374,17 @@ if __name__ == "__main__":
     history = load_history("audit_history.json")
     history = add_to_history(history, summary, policy["history_runs"])
     save_history(history, "audit_history.json")
+
+    # Generate breach verdicts for jsmith.
+    verdicts = breach_verdicts(
+        "jsmith",
+        credentials,
+        known_breached
+    )
+
+    # Print the verdicts as formatted JSON.
+    print(json.dumps(verdicts, indent=2))
+
+    # Save breach verdicts without including any passwords.
+    with open("breach_check.json", "w") as f:
+        json.dump(verdicts, f, indent=2)
