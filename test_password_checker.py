@@ -1,4 +1,4 @@
-# Week 10 Unit Tests
+# Week 11 Unit Tests
 # ITIA 1510 - Cybersecurity Automation
 
 import json
@@ -11,12 +11,17 @@ from password_checker import (
     check_username,
     check_rotation,
     check_breach,
-    known_breached,
+    breach_verdicts,
+    load_breached,
+    load_credentials,
     policy,
     load_history,
     add_to_history,
     save_history
 )
+
+# Load the breach list and credentials for the tests.
+known_breached = load_breached("breached.txt")
 
 
 # Test check_length with a weak password.
@@ -165,5 +170,64 @@ with tempfile.TemporaryDirectory() as folder:
 print("PASS: save_history and load_history returned the original history")
 
 
+# Week 11 Test 1: Gmail password is on the breach list.
+credentials = load_credentials("credentials.txt")
+
+result = breach_verdicts(
+    "jsmith",
+    credentials,
+    known_breached
+)
+
+assert result["accounts"][0] == {
+    "account": "Gmail",
+    "on_breach_list": True
+}
+
+print(
+    "PASS: breach_verdicts marked the Gmail password "
+    "as on the breach list"
+)
+
+
+# Week 11 Test 2: Username with no accounts returns an empty list.
+result = breach_verdicts(
+    "nobody",
+    credentials,
+    known_breached
+)
+
+assert result["accounts"] == []
+
+print(
+    "PASS: breach_verdicts returned an empty accounts list "
+    "for a username with no accounts"
+)
+
+
+# Week 11 Test 3: No passwords appear in the verdict JSON.
+credentials = load_credentials("credentials.txt")
+
+result = breach_verdicts(
+    "jsmith",
+    credentials,
+    known_breached
+)
+
+result_json = json.dumps(result)
+
+for credential in credentials:
+    if credential["username"] == "jsmith":
+
+        # SSH Server password equals the username, which is in the result.
+        if credential["account"] != "SSH Server":
+            assert credential["password"] not in result_json
+
+print(
+    "PASS: breach_verdicts does not include passwords "
+    "in its JSON result"
+)
+
+
 print("----------------------------------------")
-print("All 16 tests passed.")
+print("All Week 10 and Week 11 tests passed.")
