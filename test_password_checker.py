@@ -1,4 +1,4 @@
-# Week 11 Unit Tests
+# Week 12 Unit Tests
 # ITIA 1510 - Cybersecurity Automation
 
 import json
@@ -12,6 +12,10 @@ from password_checker import (
     check_rotation,
     check_breach,
     breach_verdicts,
+    length_verdicts,
+    rotation_verdicts,
+    CHECK_NAMES,
+    run_check,
     load_breached,
     load_credentials,
     policy,
@@ -20,8 +24,10 @@ from password_checker import (
     save_history
 )
 
+
 # Load the breach list and credentials for the tests.
 known_breached = load_breached("breached.txt")
+credentials = load_credentials("credentials.txt")
 
 
 # Test check_length with a weak password.
@@ -139,6 +145,7 @@ sample = {
 with tempfile.TemporaryDirectory() as folder:
     missing_filepath = os.path.join(folder, "missing_history.json")
     assert load_history(missing_filepath) == []
+
 print("PASS: load_history returns an empty list for a missing file")
 
 
@@ -149,14 +156,18 @@ assert history[0]["run"] == 1
 assert history[0]["passed"] == 2
 assert history[0]["failed"] == 3
 assert history[0]["critical_accounts"] == ["Gmail", "SSH Server"]
+
 print("PASS: add_to_history records the first run")
 
 
 # Test that only the newest two runs are kept.
 history = []
+
 for i in range(3):
     history = add_to_history(history, sample, 2)
+
 assert [entry["run"] for entry in history] == [2, 3]
+
 print("PASS: add_to_history kept only the newest 2 runs")
 
 
@@ -167,12 +178,13 @@ with tempfile.TemporaryDirectory() as folder:
     save_history(history, history_filepath)
     loaded_history = load_history(history_filepath)
     assert loaded_history == history
+
 print("PASS: save_history and load_history returned the original history")
 
 
-# Week 11 Test 1: Gmail password is on the breach list.
-credentials = load_credentials("credentials.txt")
+# WEEK 11 TESTS
 
+# Test 1: Gmail password is on the breach list.
 result = breach_verdicts(
     "jsmith",
     credentials,
@@ -190,7 +202,7 @@ print(
 )
 
 
-# Week 11 Test 2: Username with no accounts returns an empty list.
+# Test 2: Username with no accounts returns an empty list.
 result = breach_verdicts(
     "nobody",
     credentials,
@@ -205,9 +217,7 @@ print(
 )
 
 
-# Week 11 Test 3: No passwords appear in the verdict JSON.
-credentials = load_credentials("credentials.txt")
-
+# Test 3: No passwords appear in the verdict JSON.
 result = breach_verdicts(
     "jsmith",
     credentials,
@@ -229,5 +239,103 @@ print(
 )
 
 
+# WEEK 12 TESTS
+
+# Test 1: Length verdicts correctly check the VPN account.
+result = length_verdicts(
+    "jsmith",
+    credentials,
+    known_breached
+)
+
+assert result["accounts"][2] == {
+    "account": "VPN",
+    "long_enough": True
+}
+
+print("PASS: length_verdicts correctly checked VPN")
+
+
+# Test 2: Rotation verdicts correctly check SSH Server.
+result = rotation_verdicts(
+    "jsmith",
+    credentials,
+    known_breached
+)
+
+ssh_account = next(
+    account for account in result["accounts"]
+    if account["account"] == "SSH Server"
+)
+
+assert ssh_account["rotation_months"] == 24
+assert ssh_account["rotation_ok"] == False
+
+print("PASS: rotation_verdicts correctly checked SSH Server")
+
+
+# Test 3: run_check selects the correct breach verdict function.
+result = run_check(
+    "check_breach",
+    "jsmith",
+    credentials,
+    known_breached
+)
+
+expected = breach_verdicts(
+    "jsmith",
+    credentials,
+    known_breached
+)
+
+assert result == expected
+
+print("PASS: run_check correctly selected breach_verdicts")
+
+
+# Test 4: run_check rejects names that are not supported.
+result = run_check(
+    "reset_password",
+    "jsmith",
+    credentials,
+    known_breached
+)
+
+assert result == {"error": "unknown check"}
+
+print("PASS: run_check correctly rejected an unknown check")
+
+
+# Test that CHECK_NAMES contains the three required names.
+assert CHECK_NAMES == [
+    "check_breach",
+    "check_length",
+    "check_rotation"
+]
+
+print("PASS: CHECK_NAMES contains all three check names")
+
+
+# Test that the new verdict functions do not expose passwords.
+length_result = length_verdicts(
+    "jsmith",
+    credentials,
+    known_breached
+)
+
+rotation_result = rotation_verdicts(
+    "jsmith",
+    credentials,
+    known_breached
+)
+
+for credential in credentials:
+    if credential["username"] == "jsmith":
+        assert credential["password"] not in json.dumps(length_result)
+        assert credential["password"] not in json.dumps(rotation_result)
+
+print("PASS: Week 12 verdict functions do not include passwords")
+
+
 print("----------------------------------------")
-print("All Week 10 and Week 11 tests passed.")
+print("All Week 10, Week 11 and Week 12 tests passed.")
