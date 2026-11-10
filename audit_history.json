@@ -1,0 +1,16 @@
+[
+  {
+    "run": 1,
+    "passed": 0,
+    "failed": 0,
+    "critical_accounts": []
+  },
+  {
+    "run": 2,
+    "passed": 2,
+    "failed": 3,
+    "critical_accounts": [
+      "SSH Server"
+    ]
+  }
+]

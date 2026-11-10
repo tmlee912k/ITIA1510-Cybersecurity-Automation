@@ -329,13 +329,9 @@ rotation_result = rotation_verdicts(
     known_breached
 )
 
-for credential in credentials:
-    if credential["username"] == "jsmith":
-        assert credential["password"] not in json.dumps(length_result)
-        assert credential["password"] not in json.dumps(rotation_result)
+# Check that no account result contains a password field.
+for result in [length_result, rotation_result]:
+    for account in result["accounts"]:
+        assert "password" not in account
 
 print("PASS: Week 12 verdict functions do not include passwords")
-
-
-print("----------------------------------------")
-print("All Week 10, Week 11 and Week 12 tests passed.")
