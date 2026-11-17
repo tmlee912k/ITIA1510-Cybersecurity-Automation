@@ -1,8 +1,9 @@
-# Password Strength Analyzer - Week 12
+# Password Strength Analyzer - Week 13
 # ITIA 1510 - Cybersecurity Automation
 
 import json
 import os
+from datetime import datetime, timezone
 
 
 # Policy stays outside the main block so the tests can import it.
@@ -15,6 +16,44 @@ policy = {
     "check_breach_list": True,
     "history_runs": 3
 }
+
+# Week 13: Audit log file
+AUDIT_LOG = "audit_log.jsonl"
+
+
+# WEEK 13: LOG CHECK
+
+def log_check(name, username, result, log_path):
+    """Append one check result to the audit log."""
+
+    entry = {
+        "time": datetime.now(timezone.utc).isoformat(),
+        "check": name,
+        "username": username,
+        "result": result
+    }
+
+    # UTC keeps timestamps consistent across different time zones.
+    # Append mode keeps existing entries and adds the new entry at the end.
+    with open(log_path, "a") as f:
+        f.write(json.dumps(entry) + "\n")
+
+
+# WEEK 13: READ AUDIT LOG
+
+def read_audit_log(log_path):
+    """Read audit log entries and return them oldest first."""
+
+    entries = []
+
+    with open(log_path, "r") as f:
+        for line in f:
+            if line.strip() == "":
+                continue
+
+            entries.append(json.loads(line))
+
+    return entries
 
 
 def check_length(password, policy):
@@ -52,7 +91,7 @@ def check_digit(password):
 
 
 def check_username(password, username):
-    """Return True if the password differs from the username."""
+    """Return True if the password differs from its username."""
     # A password should not be identical to its username.
     not_username = password != username
     return not_username
@@ -171,11 +210,11 @@ CHECK_NAMES = [
 ]
 
 
-# WEEK 12: RUN CHECK
+# WEEK 12 AND 13: RUN CHECK
 
 def run_check(name, username, credentials, known_breached):
-    """Run the requested check based on its name."""
-    
+    """Run the requested check and record its result in the audit log."""
+
     if name == "check_breach":
         result = breach_verdicts(
             username,
@@ -200,6 +239,10 @@ def run_check(name, username, credentials, known_breached):
     else:
         # Reject unknown names so an unsupported check is never accidentally run.
         result = {"error": "unknown check"}
+
+    # Logging here captures every request, including refused checks.
+    # Every check passes through run_check(), so verdict functions need no logging.
+    log_check(name, username, result, AUDIT_LOG)
 
     return result
 
@@ -484,7 +527,7 @@ if __name__ == "__main__":
     with open("breach_check.json", "w") as f:
         json.dump(verdicts, f, indent=2)
 
-    # WEEK 12: Run all three checks for jsmith.
+    # WEEK 12 AND 13: Run all three checks for jsmith.
     all_checks = {}
 
     for name in CHECK_NAMES:
@@ -498,3 +541,7 @@ if __name__ == "__main__":
     # Save all three check results in one JSON file.
     with open("all_checks.json", "w") as f:
         json.dump(all_checks, f, indent=2)
+
+    # Count all audit log entries, including entries from previous runs.
+    entries = read_audit_log(AUDIT_LOG)
+    print(f"audit_log.jsonl holds {len(entries)} entries")
