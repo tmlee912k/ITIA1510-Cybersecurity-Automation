@@ -1,9 +1,10 @@
-# Week 12 Unit Tests
+# Week 12 and Week 13 Unit Tests
 # ITIA 1510 - Cybersecurity Automation
 
 import json
 import os
 import tempfile
+import password_checker
 
 from password_checker import (
     check_length,
@@ -21,119 +22,95 @@ from password_checker import (
     policy,
     load_history,
     add_to_history,
-    save_history
+    save_history,
+    log_check,
+    read_audit_log
 )
 
 
 # Load the breach list and credentials for the tests.
 known_breached = load_breached("breached.txt")
+
+# Use a separate audit log so the tests do not change the real audit log.
+password_checker.AUDIT_LOG = "test_audit_log.jsonl"
+
 credentials = load_credentials("credentials.txt")
 
+
+# WEEK 04-06 TESTS
 
 # Test check_length with a weak password.
 length_ok, length_verdict = check_length("abcd", policy)
 assert length_ok == False
-print(
-    "PASS: check_length correctly identified weak password "
-    "(length_ok = False)"
-)
+print("PASS: check_length correctly identified weak password")
 
 
 # Test check_length with a strong password.
 length_ok, length_verdict = check_length("abcdefghijklmnop", policy)
 assert length_ok == True
-print(
-    "PASS: check_length correctly identified strong password "
-    "(length_ok = True)"
-)
+print("PASS: check_length correctly identified strong password")
 
 
 # Test check_digit with no digits.
 has_digit = check_digit("password")
 assert has_digit == False
-print(
-    "PASS: check_digit correctly returned False "
-    "for password with no digits"
-)
+print("PASS: check_digit correctly returned False for password with no digits")
 
 
 # Test check_digit with a digit.
 has_digit = check_digit("password1")
 assert has_digit == True
-print(
-    "PASS: check_digit correctly returned True "
-    "for password containing a digit"
-)
+print("PASS: check_digit correctly returned True for password containing a digit")
 
 
 # Test check_username when password matches username.
 not_username = check_username("dylan", "dylan")
 assert not_username == False
-print(
-    "PASS: check_username correctly returned False "
-    "when password matches username"
-)
+print("PASS: check_username correctly returned False when password matches username")
 
 
 # Test check_username when password differs.
 not_username = check_username("password123", "dylan")
 assert not_username == True
-print(
-    "PASS: check_username correctly returned True "
-    "when password differs from username"
-)
+print("PASS: check_username correctly returned True when password differs")
 
 
 # Test check_rotation with an 18-month interval.
 rotation_ok, rotation_verdict = check_rotation(18, policy)
 assert rotation_ok == False
-print(
-    "PASS: check_rotation correctly returned False "
-    "for 18-month interval"
-)
+print("PASS: check_rotation correctly returned False for 18-month interval")
 
 
 # Test check_rotation with a 6-month interval.
 rotation_ok, rotation_verdict = check_rotation(6, policy)
 assert rotation_ok == True
-print(
-    "PASS: check_rotation correctly returned True "
-    "for 6-month interval"
-)
+print("PASS: check_rotation correctly returned True for 6-month interval")
 
 
 # Test the strong password length policy.
 assert policy["strong_length"] == 15
-print(
-    "PASS: policy correctly sets strong_length to 15"
-)
+print("PASS: policy correctly sets strong_length to 15")
 
 
 # Test that the digit requirement exists in the policy.
 assert "require_digit" in policy
-print(
-    "PASS: policy contains the require_digit setting"
-)
+print("PASS: policy contains the require_digit setting")
 
 
 # Test check_breach with a known breached password.
 not_breached = check_breach("password123", known_breached)
 assert not_breached == False
-print(
-    "PASS: check_breach correctly identified a breached password"
-)
+print("PASS: check_breach correctly identified a breached password")
 
 
 # Test check_breach with a password not in the breach list.
 not_breached = check_breach("Blue-Harbor-72-Lantern", known_breached)
 assert not_breached == True
-print(
-    "PASS: check_breach correctly accepted a password "
-    "not in the breach list"
-)
+print("PASS: check_breach correctly accepted a password not in the breach list")
 
 
-# Shared sample summary for the history tests.
+# WEEK 10 HISTORY TESTS
+
 sample = {
     "passed": 2,
     "failed": 3,
@@ -151,6 +128,7 @@ print("PASS: load_history returns an empty list for a missing file")
 
 # Test that the first history entry is numbered 1.
 history = add_to_history([], sample, 3)
+
 assert len(history) == 1
 assert history[0]["run"] == 1
 assert history[0]["passed"] == 2
@@ -196,10 +174,7 @@ assert result["accounts"][0] == {
     "on_breach_list": True
 }
 
-print(
-    "PASS: breach_verdicts marked the Gmail password "
-    "as on the breach list"
-)
+print("PASS: breach_verdicts marked the Gmail password as on the breach list")
 
 
 # Test 2: Username with no accounts returns an empty list.
@@ -211,10 +186,7 @@ result = breach_verdicts(
 
 assert result["accounts"] == []
 
-print(
-    "PASS: breach_verdicts returned an empty accounts list "
-    "for a username with no accounts"
-)
+print("PASS: breach_verdicts returned an empty accounts list for a username with no accounts")
 
 
 # Test 3: No passwords appear in the verdict JSON.
@@ -233,10 +205,7 @@ for credential in credentials:
         if credential["account"] != "SSH Server":
             assert credential["password"] not in result_json
 
-print(
-    "PASS: breach_verdicts does not include passwords "
-    "in its JSON result"
-)
+print("PASS: breach_verdicts does not include passwords in its JSON result")
 
 
 # WEEK 12 TESTS
@@ -329,9 +298,86 @@ rotation_result = rotation_verdicts(
     known_breached
 )
 
-# Check that no account result contains a password field.
 for result in [length_result, rotation_result]:
     for account in result["accounts"]:
         assert "password" not in account
 
 print("PASS: Week 12 verdict functions do not include passwords")
+
+
+# WEEK 13 TESTS
+
+# Remove the old test log so each test starts with a clean file.
+if os.path.exists(password_checker.AUDIT_LOG):
+    os.remove(password_checker.AUDIT_LOG)
+
+
+# Test 1: log_check writes an entry with exactly the required keys.
+with tempfile.TemporaryDirectory() as folder:
+    test_log = os.path.join(folder, "test_log.jsonl")
+
+    log_check(
+        "check_length",
+        "jsmith",
+        {"long_enough": True},
+        test_log
+    )
+
+    entries = read_audit_log(test_log)
+
+    assert len(entries) == 1
+    assert set(entries[0].keys()) == {
+        "time",
+        "check",
+        "username",
+        "result"
+    }
+
+print("PASS: log_check writes all four required audit log fields")
+
+
+# Test 2: run_check logs successful and refused checks in order.
+if os.path.exists(password_checker.AUDIT_LOG):
+    os.remove(password_checker.AUDIT_LOG)
+
+run_check(
+    "check_length",
+    "jsmith",
+    credentials,
+    known_breached
+)
+
+run_check(
+    "reset_password",
+    "jsmith",
+    credentials,
+    known_breached
+)
+
+entries = read_audit_log(password_checker.AUDIT_LOG)
+
+assert len(entries) == 2
+assert entries[0]["check"] == "check_length"
+assert entries[1]["check"] == "reset_password"
+assert entries[1]["result"] == {"error": "unknown check"}
+
+print("PASS: run_check logged successful and refused checks in order")
+
+
+# Test 3: Passwords are not stored in the audit log.
+audit_log_text = ""
+
+with open(password_checker.AUDIT_LOG, "r") as f:
+    audit_log_text = f.read()
+
+for credential in credentials:
+    if credential["username"] == "jsmith":
+
+        # SSH Server password equals the username, which is logged.
+        if credential["account"] != "SSH Server":
+            assert credential["password"] not in audit_log_text
+
+print("PASS: audit log does not contain account passwords")
+
+
+print("\nAll Week 12 and Week 13 tests completed successfully!")
